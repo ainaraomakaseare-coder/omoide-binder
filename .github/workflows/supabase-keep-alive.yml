@@ -1,0 +1,30 @@
+# Supabase無料プランの自動一時停止（約7日間アクセスなしで停止）を防ぐため、
+# 3日おきにデータベースへ軽いアクセスを送る。
+name: Supabase keep-alive
+
+on:
+  schedule:
+    # 3日おき 日本時間 9:17（UTC 0:17）
+    - cron: "17 0 */3 * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase database
+        env:
+          SUPABASE_URL: https://kkukkhhocuuihytwwuoc.supabase.co
+          # 公開用（publishable）キー。index.html にも書かれているものと同じ。
+          SUPABASE_KEY: sb_publishable_JZafbvGqkIKl9swIWxEBIA_8lbAfbpU
+        run: |
+          status=$(curl -sS -o /tmp/res.txt -w "%{http_code}" \
+            "$SUPABASE_URL/rest/v1/people?select=id&limit=1" \
+            -H "apikey: $SUPABASE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_KEY")
+          echo "HTTP $status"
+          head -c 300 /tmp/res.txt; echo
+          if [ "$status" -ge 500 ] || [ "$status" = "000" ]; then
+            echo "Supabaseに接続できませんでした（一時停止中の可能性）"
+            exit 1
+          fi
